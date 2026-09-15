@@ -1,13 +1,12 @@
 import { chromium } from "playwright";
 import { paperDimensionsIn } from "@/components/CvDocument";
-import { putForPrint } from "./print-cache";
 import type { CvDocument } from "./cv-schema";
 
 function baseUrl(): string {
   // In dev/prod this process is the same Next.js server handling the
   // request, so it's always reachable on its own port over loopback.
   const port = process.env.PORT ?? "3000";
-  return process.env.INTERNAL_BASE_URL ?? `http://127.0.0.1:${port}`;
+  return process.env.INTERNAL_BASE_URL ?? `http://localhost:${port}`;
 }
 
 /**
@@ -19,9 +18,9 @@ function baseUrl(): string {
 export async function renderCvToPdf(
   cv: CvDocument,
 ): Promise<{ pdf: Buffer; contentHeightIn: number }> {
-  const token = putForPrint(cv);
   const dims = paperDimensionsIn(cv.style.paperSize);
-  const url = `${baseUrl()}/print/cv?token=${token}`;
+  const data = Buffer.from(JSON.stringify(cv), "utf-8").toString("base64url");
+  const url = `${baseUrl()}/print/cv?data=${data}`;
 
   const browser = await chromium.launch();
   try {

@@ -1,17 +1,26 @@
 import { notFound } from "next/navigation";
 import CvDocumentView from "@/components/CvDocument";
-import { takeForPrint } from "@/lib/print-cache";
+import { cvDocumentSchema } from "@/lib/cv-schema";
 
 export const dynamic = "force-dynamic";
 
 export default async function PrintCvPage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ data?: string }>;
 }) {
-  const { token } = await searchParams;
-  const cv = token ? takeForPrint(token) : null;
-  if (!cv) notFound();
+  const { data } = await searchParams;
+  if (!data) notFound();
 
-  return <CvDocumentView cv={cv} />;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(Buffer.from(data, "base64url").toString("utf-8"));
+  } catch {
+    notFound();
+  }
+
+  const result = cvDocumentSchema.safeParse(parsed);
+  if (!result.success) notFound();
+
+  return <CvDocumentView cv={result.data} />;
 }
