@@ -1,40 +1,35 @@
-import { renderToStaticMarkup } from "react-dom/server";
 import { chromium } from "playwright";
-import CvDocumentView, { paperDimensionsIn } from "@/components/CvDocument";
+import { paperDimensionsIn } from "@/components/CvDocument";
+import { putForPrint } from "./print-cache";
 import type { CvDocument } from "./cv-schema";
 
-function wrapHtml(bodyMarkup: string): string {
-  return `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      ul { margin: 0; }
-    </style>
-  </head>
-  <body>${bodyMarkup}</body>
-</html>`;
+function baseUrl(): string {
+  // In dev/prod this process is the same Next.js server handling the
+  // request, so it's always reachable on its own port over loopback.
+  const port = process.env.PORT ?? "3000";
+  return process.env.INTERNAL_BASE_URL ?? `http://127.0.0.1:${port}`;
 }
 
 /**
- * Renders the CV to a PDF buffer using the exact same React component and
- * inline styles as the browser preview, so the export is a faithful WYSIWYG
- * match. Also returns the rendered content height in inches (via the same
- * measurement Playwright saw) so callers can detect page overflow.
+ * Renders the CV to a PDF buffer by having Playwright navigate to the app's
+ * own /print/cv page (the same CvDocumentView component used for the live
+ * preview, rendered through Next.js normally), so the export is a faithful
+ * WYSIWYG match with no separate HTML-templating path to keep in sync.
  */
 export async function renderCvToPdf(
   cv: CvDocument,
 ): Promise<{ pdf: Buffer; contentHeightIn: number }> {
-  const markup = renderToStaticMarkup(CvDocumentView({ cv }));
-  const html = wrapHtml(markup);
+  const token = putForPrint(cv);
   const dims = paperDimensionsIn(cv.style.paperSize);
+  const url = `${baseUrl()}/print/cv?token=${token}`;
 
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "load" });
+    const response = await page.goto(url, { waitUntil: "load" });
+    if (!response || !response.ok()) {
+      throw new Error("Could not render the CV for export.");
+    }
 
     const contentHeightIn = await page.evaluate(() => {
       const node = document.querySelector("[data-cv-page]") as HTMLElement | null;

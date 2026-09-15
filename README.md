@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CV Tailor
 
-## Getting Started
+Upload a CV (PDF), point it at a job posting (URL or pasted text), and get back a tailored,
+Harvard-style one-page CV. Preview it, tweak formatting (font, size, margins, line spacing),
+manually edit sections, and export a matching PDF.
 
-First, run the development server:
+## Setup
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. Install dependencies:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+   ```bash
+   npm install
+   npx playwright install chromium
+   ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+2. Add your Anthropic API key:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```bash
+   cp .env.example .env.local
+   # then edit .env.local and set ANTHROPIC_API_KEY
+   ```
 
-## Learn More
+3. Run the dev server:
 
-To learn more about Next.js, take a look at the following resources:
+   ```bash
+   npm run dev
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   Open [http://localhost:3000](http://localhost:3000).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## How it works
 
-## Deploy on Vercel
+- **Intake** (`/`): upload your CV PDF, provide a job URL or pasted description, and optional
+  notes. The CV is parsed into structured JSON, the job posting is fetched/read, and Claude
+  tailors the CV content to the job (with a hard rule against inventing facts).
+- **Editor** (`/editor`): live preview of the tailored CV, with a side panel to adjust formatting,
+  manually edit sections/bullets, add more notes and re-tailor, and export the final PDF.
+  Formatting and manual edits are session-only (kept in `localStorage`), no account or database
+  required.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Architecture
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `lib/cv-schema.ts` — the CV data model (zod schema + types).
+- `lib/claude.ts` — Claude prompts for CV extraction and job-tailoring.
+- `lib/pdf-extract.ts` — PDF → raw text.
+- `lib/pdf-render.ts` — renders the CV template to PDF via Playwright, matching the browser
+  preview exactly.
+- `lib/autofit.ts` — logic for shrinking font/margins/spacing to fit the CV on one page.
+- `components/CvDocument.tsx` — the CV template itself, used for both the live preview and the
+  PDF export.
