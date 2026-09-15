@@ -37,17 +37,23 @@ export function styleFromLadderStep(
   };
 }
 
-/** Printable page height in inches for the given style's paper size and margins. */
-export function printableHeightIn(style: CvStyle): number {
-  const { height } = paperDimensionsIn(style.paperSize);
-  return height - style.marginIn.top - style.marginIn.bottom;
+/**
+ * Full page height in inches for the given style's paper size. The CV
+ * template applies its margins as CSS padding on the measured element, so
+ * `scrollHeight`-based measurements already include the margins — the
+ * correct comparison is against the full page height, not page height minus
+ * margins (which would double-subtract them).
+ */
+export function pageHeightIn(style: CvStyle): number {
+  return paperDimensionsIn(style.paperSize).height;
 }
 
 /**
  * Tries each ladder step in order, using `measureHeightIn` (which renders the
- * CV with the given style and returns the content height in inches) to find
- * the first step whose content fits one page. Falls back to the tightest
- * step if nothing fits, so the caller can warn the user to trim content.
+ * CV with the given style and returns the full box height in inches,
+ * margins included) to find the first step whose content fits one page.
+ * Falls back to the tightest step if nothing fits, so the caller can warn
+ * the user to trim content.
  */
 export async function autofitToOnePage(
   base: CvStyle,
@@ -58,7 +64,7 @@ export async function autofitToOnePage(
     const style = styleFromLadderStep(base, step);
     lastStyle = style;
     const contentHeight = await measureHeightIn(style);
-    if (contentHeight <= printableHeightIn(style)) {
+    if (contentHeight <= pageHeightIn(style)) {
       return { style, fits: true };
     }
   }

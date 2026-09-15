@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { CvDocument, CountryDetection } from "./cv-schema";
 
 export type CvSession = {
@@ -42,9 +42,25 @@ export function clearSession() {
   }
 }
 
-/** Loads the persisted session once (lazily, on first render) and autosaves on every change. */
+/**
+ * Loads the persisted session after mount (never during the initial render,
+ * so the client's first pass matches the server's and React doesn't flag a
+ * hydration mismatch) and autosaves on every change. `hydrated` lets callers
+ * distinguish "still loading" from "genuinely no session".
+ */
 export function useCvSession() {
-  const [session, setSession] = useState<CvSession | null>(() => loadSession());
+  const [session, setSession] = useState<CvSession | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    // Reading localStorage can only happen client-side, so this must be an
+    // effect rather than a lazy useState initializer (which would run
+    // during the initial client render and cause a hydration mismatch
+    // against the server's render, which has no access to localStorage).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSession(loadSession());
+    setHydrated(true);
+  }, []);
 
   const update = useCallback((next: CvSession | null) => {
     setSession(next);
@@ -52,5 +68,5 @@ export function useCvSession() {
     else clearSession();
   }, []);
 
-  return { session, setSession: update };
+  return { session, setSession: update, hydrated };
 }
