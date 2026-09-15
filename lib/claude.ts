@@ -25,10 +25,9 @@ function getClient(): Anthropic {
 }
 
 function jsonSchemaFor(schema: z.ZodType): Anthropic.Tool.InputSchema {
-  const { $schema, ...rest } = z.toJSONSchema(schema, {
-    target: "draft-7",
-  }) as Record<string, unknown>;
-  return rest as Anthropic.Tool.InputSchema;
+  const full = z.toJSONSchema(schema, { target: "draft-7" }) as Record<string, unknown>;
+  delete full.$schema;
+  return full as Anthropic.Tool.InputSchema;
 }
 
 async function callToolOnce<T>(params: {

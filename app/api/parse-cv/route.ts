@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   let rawText: string;
   try {
     rawText = await extractTextFromPdf(buffer);
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: "Could not read that PDF. Please make sure it's a valid, non-scanned PDF." },
       { status: 400 },
