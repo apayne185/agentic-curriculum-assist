@@ -7,7 +7,7 @@ import FormatPanel from "@/components/FormatPanel";
 import SectionEditor from "@/components/SectionEditor";
 import NotesBox from "@/components/NotesBox";
 import { useCvSession } from "@/lib/cv-store";
-import { autofitToOnePage, printableHeightIn } from "@/lib/autofit";
+import { autofitToOnePage, pageHeightIn } from "@/lib/autofit";
 import { measureCvHeightIn } from "@/lib/measure-cv-height";
 import type { CvDocument, CvStyle } from "@/lib/cv-schema";
 
@@ -15,7 +15,7 @@ type Tab = "format" | "edit" | "notes";
 
 export default function EditorPage() {
   const router = useRouter();
-  const { session, setSession } = useCvSession();
+  const { session, setSession, hydrated } = useCvSession();
   const [tab, setTab] = useState<Tab>("format");
   const [overflowing, setOverflowing] = useState<boolean | null>(null);
   const [autofitting, setAutofitting] = useState(false);
@@ -23,27 +23,19 @@ export default function EditorPage() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
-  const [checkedNoSession, setCheckedNoSession] = useState(false);
 
   useEffect(() => {
-    // Give the localStorage-hydrated session one tick to load before
-    // deciding there's genuinely nothing to edit.
-    const t = setTimeout(() => setCheckedNoSession(true), 0);
-    return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    if (checkedNoSession && !session) {
+    if (hydrated && !session) {
       router.replace("/");
     }
-  }, [checkedNoSession, session, router]);
+  }, [hydrated, session, router]);
 
   useEffect(() => {
     if (!session) return;
     const node = previewRef.current?.querySelector<HTMLElement>("[data-cv-page]");
     if (!node) return;
-    const printableHeightPx = printableHeightIn(session.current.style) * 96 + node.offsetTop;
-    setOverflowing(node.scrollHeight > printableHeightPx);
+    const pageHeightPx = pageHeightIn(session.current.style) * 96;
+    setOverflowing(node.scrollHeight > pageHeightPx);
   }, [session]);
 
   if (!session) {
@@ -125,6 +117,11 @@ export default function EditorPage() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Failed to export PDF.");
+      }
+      if (res.headers.get("X-Cv-Overflowed") === "true") {
+        setError(
+          "Warning: the exported PDF spans more than one page. Try \"Fit to one page\" or trim some content.",
+        );
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);

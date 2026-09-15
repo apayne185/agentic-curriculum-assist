@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cvDocumentSchema } from "@/lib/cv-schema";
 import { renderCvToPdf } from "@/lib/pdf-render";
+import { pageHeightIn } from "@/lib/autofit";
 
 export const runtime = "nodejs";
 
@@ -12,11 +13,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { pdf } = await renderCvToPdf(parsed.data);
+    const { pdf, contentHeightIn } = await renderCvToPdf(parsed.data);
+    const overflowed = contentHeightIn > pageHeightIn(parsed.data.style);
     return new NextResponse(new Uint8Array(pdf), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": "attachment; filename=cv.pdf",
+        "X-Cv-Overflowed": String(overflowed),
       },
     });
   } catch (err) {
