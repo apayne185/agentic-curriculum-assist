@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { tailorCv } from "@/lib/claude";
+import { tailorCv } from "@/lib/llm";
 import { cvDocumentSchema, toCvDocument } from "@/lib/cv-schema";
 
 export const runtime = "nodejs";
