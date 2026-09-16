@@ -40,7 +40,7 @@ async function callToolOnce<T>(params: {
   const anthropic = getClient();
   const response = await anthropic.messages.create({
     model: MODEL,
-    max_tokens: 8000,
+    max_tokens: 16000,
     system: params.system,
     messages: [{ role: "user", content: params.userContent }],
     tools: [
@@ -52,6 +52,12 @@ async function callToolOnce<T>(params: {
     ],
     tool_choice: { type: "tool", name: params.toolName },
   });
+
+  if (response.stop_reason === "max_tokens") {
+    throw new Error(
+      "The response was too long and got cut off. Try again, or shorten the CV/notes.",
+    );
+  }
 
   const toolUse = response.content.find((block) => block.type === "tool_use");
   if (!toolUse || toolUse.type !== "tool_use") {

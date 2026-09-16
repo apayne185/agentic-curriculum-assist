@@ -4,6 +4,8 @@ import { htmlToText } from "@/lib/html-to-text";
 
 export const runtime = "nodejs";
 
+const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // 5MB — generous for an HTML job posting page
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const url = typeof body?.url === "string" ? body.url.trim() : "";
@@ -47,7 +49,44 @@ export async function POST(request: Request) {
     );
   }
 
-  const html = await response.text();
+  const contentLength = Number(response.headers.get("content-length") ?? "0");
+  if (contentLength > MAX_RESPONSE_BYTES) {
+    return NextResponse.json(
+      {
+        error: "That page is too large to fetch. Please paste the description instead.",
+        fallbackToPaste: true,
+      },
+      { status: 400 },
+    );
+  }
+
+  let html: string;
+  if (response.body) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let received = 0;
+    let result = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > MAX_RESPONSE_BYTES) {
+        await reader.cancel();
+        return NextResponse.json(
+          {
+            error: "That page is too large to fetch. Please paste the description instead.",
+            fallbackToPaste: true,
+          },
+          { status: 400 },
+        );
+      }
+      result += decoder.decode(value, { stream: true });
+    }
+    html = result;
+  } else {
+    html = await response.text();
+  }
+
   const text = htmlToText(html);
 
   if (text.length < 100) {
