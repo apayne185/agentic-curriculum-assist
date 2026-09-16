@@ -1,69 +1,32 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { z } from "zod";
 import { randomUUID } from "crypto";
 import {
   type CvContent,
   type TailorResult,
   cvContentSchema,
   tailorResultSchema,
-} from "./cv-schema";
+} from "../cv-schema";
+import type { LlmProvider } from "./types";
+import { AnthropicProvider } from "./providers/anthropic";
+import { GeminiProvider } from "./providers/gemini";
 
-const MODEL = "claude-sonnet-5";
+const PROVIDERS: Record<string, () => LlmProvider> = {
+  anthropic: () => new AnthropicProvider(),
+  gemini: () => new GeminiProvider(),
+};
 
-let client: Anthropic | null = null;
-function getClient(): Anthropic {
-  if (!client) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
+let provider: LlmProvider | null = null;
+function getProvider(): LlmProvider {
+  if (!provider) {
+    const name = (process.env.LLM_PROVIDER || "anthropic").toLowerCase();
+    const factory = PROVIDERS[name];
+    if (!factory) {
       throw new Error(
-        "ANTHROPIC_API_KEY is not set. Add it to .env.local before using the tailoring features.",
+        `Unknown LLM_PROVIDER "${name}". Supported: ${Object.keys(PROVIDERS).join(", ")}.`,
       );
     }
-    client = new Anthropic({ apiKey });
+    provider = factory();
   }
-  return client;
-}
-
-function jsonSchemaFor(schema: z.ZodType): Anthropic.Tool.InputSchema {
-  const full = z.toJSONSchema(schema, { target: "draft-7" }) as Record<string, unknown>;
-  delete full.$schema;
-  return full as Anthropic.Tool.InputSchema;
-}
-
-async function callToolOnce<T>(params: {
-  system: string;
-  userContent: string;
-  toolName: string;
-  toolDescription: string;
-  schema: z.ZodType<T>;
-}): Promise<T> {
-  const anthropic = getClient();
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 16000,
-    system: params.system,
-    messages: [{ role: "user", content: params.userContent }],
-    tools: [
-      {
-        name: params.toolName,
-        description: params.toolDescription,
-        input_schema: jsonSchemaFor(params.schema),
-      },
-    ],
-    tool_choice: { type: "tool", name: params.toolName },
-  });
-
-  if (response.stop_reason === "max_tokens") {
-    throw new Error(
-      "The response was too long and got cut off. Try again, or shorten the CV/notes.",
-    );
-  }
-
-  const toolUse = response.content.find((block) => block.type === "tool_use");
-  if (!toolUse || toolUse.type !== "tool_use") {
-    throw new Error("Claude did not return a tool call as expected.");
-  }
-  return params.schema.parse(toolUse.input);
+  return provider;
 }
 
 function withIds(content: CvContent): CvContent {
@@ -95,7 +58,7 @@ Rules:
 - Every entry must include a "bullets" array (use an empty array if the entry has no bullet points).`;
 
 export async function extractCvFromText(rawText: string): Promise<CvContent> {
-  const result = await callToolOnce({
+  const result = await getProvider().runStructuredTool({
     system: EXTRACTION_SYSTEM_PROMPT,
     userContent: `Raw CV text extracted from a PDF:\n\n---\n${rawText}\n---\n\nConvert this into the structured CV JSON via the tool call.`,
     toolName: "submit_cv",
@@ -147,7 +110,7 @@ export async function tailorCv(params: {
     .filter(Boolean)
     .join("\n\n");
 
-  const result = await callToolOnce({
+  const result = await getProvider().runStructuredTool({
     system: TAILORING_SYSTEM_PROMPT,
     userContent,
     toolName: "submit_tailored_cv",

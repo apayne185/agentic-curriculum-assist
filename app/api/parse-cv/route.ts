@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
-import { extractCvFromText } from "@/lib/claude";
+import { extractCvFromText } from "@/lib/llm";
 import { DEFAULT_CV_STYLE, toCvDocument } from "@/lib/cv-schema";
 
 export const runtime = "nodejs";
