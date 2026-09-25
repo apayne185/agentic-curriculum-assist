@@ -15,7 +15,7 @@ type Tab = "format" | "edit" | "notes";
 
 export default function EditorPage() {
   const router = useRouter();
-  const { session, setSession, hydrated } = useCvSession();
+  const { session, setSession, updateSession, hydrated } = useCvSession();
   const [tab, setTab] = useState<Tab>("format");
   const [overflowing, setOverflowing] = useState<boolean | null>(null);
   const [autofitting, setAutofitting] = useState(false);
@@ -59,10 +59,16 @@ export default function EditorPage() {
   async function handleAutofit() {
     setAutofitting(true);
     try {
+      // Captures the style to fit at the moment autofit starts. The
+      // measurement loop below runs several async passes, during which
+      // other edits (a re-tailor, a manual edit) may land — the final
+      // write uses the functional updateSession so it merges onto
+      // whatever is live *then*, rather than overwriting it with a value
+      // computed from this now-stale snapshot.
       const { style, fits } = await autofitToOnePage(cvSession.current.style, (candidateStyle) =>
         measureCvHeightIn(cvSession.current, candidateStyle),
       );
-      updateStyle(style);
+      updateSession((prev) => ({ ...prev, current: { ...prev.current, style } }));
       setOverflowing(!fits);
       if (!fits) {
         setError(
@@ -94,19 +100,17 @@ export default function EditorPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to re-tailor.");
-      // Paper size is a formatting choice the user already made (via the
-      // intake flow's country step, or the Format panel) — re-tailoring
-      // content on a note shouldn't silently change it as a side effect,
-      // even if the model's detection now disagrees with what's already set.
-      const tailoredCv: CvDocument = {
-        ...data.cv,
-        style: { ...data.cv.style, paperSize: cvSession.current.style.paperSize },
-      };
-      setSession({
-        ...cvSession,
-        current: tailoredCv,
-        countryDetection: data.countryDetection,
-        notes,
+      // Merges onto whatever session is live when this resolves (see the
+      // comment in handleAutofit) rather than the snapshot captured when
+      // the request started, so a concurrent autofit/manual style edit
+      // isn't lost.
+      updateSession((prev) => {
+        // Re-tailoring only ever changes *content*, never formatting — the
+        // response's style reflects whatever was live when the request was
+        // sent, which may now be stale (e.g. autofit ran while this was in
+        // flight). Always keep the live style in full, not just paperSize.
+        const tailoredCv: CvDocument = { ...data.cv, style: prev.current.style };
+        return { ...prev, current: tailoredCv, countryDetection: data.countryDetection, notes };
       });
       return true;
     } catch (err) {
