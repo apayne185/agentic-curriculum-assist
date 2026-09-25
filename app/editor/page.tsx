@@ -185,7 +185,11 @@ export default function EditorPage() {
             {exporting ? "Exporting…" : "Download PDF"}
           </button>
         </div>
-        {error && <p className="text-sm text-red-600 max-w-md text-center">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-red-600 max-w-md text-center">
+            {error}
+          </p>
+        )}
         <div
           ref={previewRef}
           style={{
@@ -198,10 +202,15 @@ export default function EditorPage() {
       </main>
 
       <aside className="w-80 border-l border-zinc-200 flex flex-col">
-        <div className="flex border-b border-zinc-200">
+        <div role="tablist" aria-label="Editor sections" className="flex border-b border-zinc-200">
           {(["format", "edit", "notes"] as Tab[]).map((t) => (
             <button
               key={t}
+              type="button"
+              role="tab"
+              id={`tab-${t}`}
+              aria-selected={tab === t}
+              aria-controls={`tabpanel-${t}`}
               onClick={() => setTab(t)}
               className={`flex-1 py-2 text-sm capitalize ${
                 tab === t ? "border-b-2 border-black font-medium" : "text-zinc-500"
@@ -213,16 +222,26 @@ export default function EditorPage() {
         </div>
         <div className="flex-1 overflow-auto p-4">
           {tab === "format" && (
-            <FormatPanel
-              style={cvSession.current.style}
-              onChange={updateStyle}
-              onAutofit={handleAutofit}
-              autofitting={autofitting}
-              overflowing={overflowing}
-            />
+            <div id="tabpanel-format" role="tabpanel" aria-labelledby="tab-format">
+              <FormatPanel
+                style={cvSession.current.style}
+                onChange={updateStyle}
+                onAutofit={handleAutofit}
+                autofitting={autofitting}
+                overflowing={overflowing}
+              />
+            </div>
           )}
-          {tab === "edit" && <SectionEditor cv={cvSession.current} onChange={updateCv} />}
-          {tab === "notes" && <NotesBox onRetailor={handleRetailor} busy={retailoring} />}
+          {tab === "edit" && (
+            <div id="tabpanel-edit" role="tabpanel" aria-labelledby="tab-edit">
+              <SectionEditor cv={cvSession.current} onChange={updateCv} />
+            </div>
+          )}
+          {tab === "notes" && (
+            <div id="tabpanel-notes" role="tabpanel" aria-labelledby="tab-notes">
+              <NotesBox onRetailor={handleRetailor} busy={retailoring} />
+            </div>
+          )}
         </div>
       </aside>
     </div>

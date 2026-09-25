@@ -60,8 +60,17 @@ function EntryBlock({ section, entryIdx }: { section: CvSection; entryIdx: numbe
   );
 }
 
+function hasContent(section: CvSection): boolean {
+  if (section.kind === "entries") return (section.entries?.length ?? 0) > 0;
+  if (section.kind === "skills") return Boolean(section.skillsLine?.trim());
+  return Boolean(section.freeformText?.trim());
+}
+
 function SectionBlock({ section }: { section: CvSection }) {
-  if (!section.visible) return null;
+  // A section with no entries/text yet (e.g. just added, not filled in) is
+  // still a heading with nothing under it — skip it entirely rather than
+  // rendering a bare underlined heading in the preview and the exported PDF.
+  if (!section.visible || !hasContent(section)) return null;
   return (
     <section style={{ marginBottom: "var(--section-spacing)" }}>
       <SectionHeading>{section.heading}</SectionHeading>
