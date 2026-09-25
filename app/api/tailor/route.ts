@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { tailorCv } from "@/lib/llm";
-import { userFacingErrorMessage } from "@/lib/llm/user-facing-error";
+import { userFacingErrorMessage } from "@/lib/user-facing-error";
 import { cvDocumentSchema, toCvDocument } from "@/lib/cv-schema";
 
 export const runtime = "nodejs";

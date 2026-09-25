@@ -2,8 +2,13 @@ import { NextResponse } from "next/server";
 import { cvDocumentSchema } from "@/lib/cv-schema";
 import { renderCvToPdf } from "@/lib/pdf-render";
 import { pageHeightIn } from "@/lib/autofit";
+import { userFacingErrorMessage } from "@/lib/user-facing-error";
 
 export const runtime = "nodejs";
+// Launching a browser and rendering a full page adds real latency beyond a
+// typical API route; Vercel's Fluid Compute default (300s) is already
+// generous for this, but set it explicitly so it's not left implicit.
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -23,7 +28,10 @@ export async function POST(request: Request) {
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to export PDF.";
+    const message = userFacingErrorMessage(
+      err,
+      "Something went wrong while creating your PDF. Please try again in a moment.",
+    );
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
