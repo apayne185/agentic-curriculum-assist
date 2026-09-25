@@ -30,6 +30,39 @@ export type CvStyle = z.infer<typeof cvStyleSchema>;
 
 export const DEFAULT_CV_STYLE: CvStyle = cvStyleSchema.parse({});
 
+const STYLE_BOUNDS = {
+  fontSizePt: { min: 8, max: 13 },
+  lineHeight: { min: 0.9, max: 1.5 },
+  marginIn: { min: 0.3, max: 1.5 },
+  sectionSpacingPt: { min: 2, max: 24 },
+} as const;
+
+function clampNum(value: number, { min, max }: { min: number; max: number }): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * Clamps a style's numeric fields to the same bounds cvStyleSchema
+ * enforces, so a value that's transiently out of range in a form field
+ * (e.g. mid-typing, before blur) can never reach a schema-validated
+ * boundary (like /api/export-pdf) and fail there with an opaque error.
+ */
+export function clampCvStyle(style: CvStyle): CvStyle {
+  return {
+    ...style,
+    fontSizePt: clampNum(style.fontSizePt, STYLE_BOUNDS.fontSizePt),
+    lineHeight: clampNum(style.lineHeight, STYLE_BOUNDS.lineHeight),
+    sectionSpacingPt: clampNum(style.sectionSpacingPt, STYLE_BOUNDS.sectionSpacingPt),
+    marginIn: {
+      top: clampNum(style.marginIn.top, STYLE_BOUNDS.marginIn),
+      right: clampNum(style.marginIn.right, STYLE_BOUNDS.marginIn),
+      bottom: clampNum(style.marginIn.bottom, STYLE_BOUNDS.marginIn),
+      left: clampNum(style.marginIn.left, STYLE_BOUNDS.marginIn),
+    },
+  };
+}
+
 export const countryDetectionSchema = z.object({
   countryGuess: z.string().optional(),
   paperSize: z.enum(PAPER_SIZES),

@@ -9,7 +9,7 @@ import NotesBox from "@/components/NotesBox";
 import { useCvSession } from "@/lib/cv-store";
 import { autofitToOnePage, pageHeightIn } from "@/lib/autofit";
 import { measureCvHeightIn } from "@/lib/measure-cv-height";
-import type { CvDocument, CvStyle } from "@/lib/cv-schema";
+import { clampCvStyle, type CvDocument, type CvStyle } from "@/lib/cv-schema";
 
 type Tab = "format" | "edit" | "notes";
 
@@ -117,10 +117,18 @@ export default function EditorPage() {
     setExporting(true);
     setError(null);
     try {
+      // Defensive clamp in case a format field holds a transiently
+      // out-of-range value (e.g. mid-typing, not yet blurred) — the export
+      // schema enforces the same bounds and would otherwise fail with an
+      // opaque "Invalid cv" error instead of just using a valid value.
+      const cvToExport: CvDocument = {
+        ...cvSession.current,
+        style: clampCvStyle(cvSession.current.style),
+      };
       const res = await fetch("/api/export-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cv: cvSession.current }),
+        body: JSON.stringify({ cv: cvToExport }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
