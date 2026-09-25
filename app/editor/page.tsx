@@ -92,9 +92,17 @@ export default function EditorPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to re-tailor.");
+      // Paper size is a formatting choice the user already made (via the
+      // intake flow's country step, or the Format panel) — re-tailoring
+      // content on a note shouldn't silently change it as a side effect,
+      // even if the model's detection now disagrees with what's already set.
+      const tailoredCv: CvDocument = {
+        ...data.cv,
+        style: { ...data.cv.style, paperSize: cvSession.current.style.paperSize },
+      };
       setSession({
         ...cvSession,
-        current: data.cv,
+        current: tailoredCv,
         countryDetection: data.countryDetection,
         notes,
       });
