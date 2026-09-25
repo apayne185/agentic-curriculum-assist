@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 type NotesBoxProps = {
-  onRetailor: (notes: string) => Promise<void>;
+  onRetailor: (notes: string) => Promise<boolean>;
   busy: boolean;
 };
 
@@ -22,8 +22,11 @@ export default function NotesBox({ onRetailor, busy }: NotesBoxProps) {
         type="button"
         disabled={busy || !notes.trim()}
         onClick={async () => {
-          await onRetailor(notes.trim());
-          setNotes("");
+          // Only clear the note on success — a failed re-tailor (network
+          // error, API error) should leave what the user typed intact
+          // rather than silently discarding it.
+          const succeeded = await onRetailor(notes.trim());
+          if (succeeded) setNotes("");
         }}
         className="w-full bg-zinc-900 text-white rounded px-3 py-1.5 text-sm disabled:opacity-40"
       >

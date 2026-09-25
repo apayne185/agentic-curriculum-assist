@@ -76,7 +76,9 @@ export default function EditorPage() {
     }
   }
 
-  async function handleRetailor(notes: string) {
+  /** Returns whether the re-tailor succeeded, so callers (NotesBox) know
+   * whether it's safe to clear what the user typed. */
+  async function handleRetailor(notes: string): Promise<boolean> {
     setRetailoring(true);
     setError(null);
     try {
@@ -106,8 +108,10 @@ export default function EditorPage() {
         countryDetection: data.countryDetection,
         notes,
       });
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
+      return false;
     } finally {
       setRetailoring(false);
     }
