@@ -1,12 +1,40 @@
-import { chromium } from "playwright";
+import type { Browser } from "playwright-core";
 import { paperDimensionsIn } from "@/components/CvDocument";
 import type { CvDocument } from "./cv-schema";
 
 function baseUrl(): string {
-  // In dev/prod this process is the same Next.js server handling the
-  // request, so it's always reachable on its own port over loopback.
+  // On Vercel, each function invocation is its own isolated instance with
+  // no guaranteed same-process server to reach over loopback — VERCEL_URL
+  // is the platform-provided way to get this deployment's own reachable
+  // URL. Elsewhere (dev, VPS, Docker) this process IS the Next.js server
+  // handling the request, so localhost:PORT always works.
+  if (process.env.INTERNAL_BASE_URL) return process.env.INTERNAL_BASE_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   const port = process.env.PORT ?? "3000";
-  return process.env.INTERNAL_BASE_URL ?? `http://localhost:${port}`;
+  return `http://localhost:${port}`;
+}
+
+/**
+ * Launches Chromium via full Playwright locally/on a traditional server
+ * (dev, VPS, Docker — anywhere `npx playwright install chromium` has run),
+ * or via playwright-core + @sparticuz/chromium on Vercel, whose serverless
+ * functions can't rely on a pre-installed browser and need one packaged
+ * for that environment instead. Both dependencies are dynamically
+ * imported so neither is loaded (or needs to be installed) in the
+ * environment that doesn't use it.
+ */
+async function launchBrowser(): Promise<Browser> {
+  if (process.env.VERCEL) {
+    const { chromium } = await import("playwright-core");
+    const chromiumBinary = (await import("@sparticuz/chromium")).default;
+    return chromium.launch({
+      args: chromiumBinary.args,
+      executablePath: await chromiumBinary.executablePath(),
+      headless: true,
+    });
+  }
+  const { chromium } = await import("playwright");
+  return chromium.launch();
 }
 
 /**
@@ -22,7 +50,7 @@ export async function renderCvToPdf(
   const data = Buffer.from(JSON.stringify(cv), "utf-8").toString("base64url");
   const url = `${baseUrl()}/print/cv?data=${data}`;
 
-  const browser = await chromium.launch();
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
     const response = await page.goto(url, { waitUntil: "load" });
