@@ -37,6 +37,17 @@ export const countryDetectionSchema = z.object({
 });
 export type CountryDetection = z.infer<typeof countryDetectionSchema>;
 
+// US/Canada use Letter; everywhere else uses A4. Used to resolve a paper
+// size directly from a user-confirmed country (see the intake page's
+// "which country is this job in?" fallback), so that an explicit user
+// choice is authoritative and never re-litigated by a model's own
+// (possibly conflicting) inference on a later call.
+const LETTER_COUNTRIES = new Set(["United States", "Canada"]);
+
+export function paperSizeForCountry(country: string): (typeof PAPER_SIZES)[number] {
+  return LETTER_COUNTRIES.has(country) ? "letter" : "a4";
+}
+
 export const cvEntrySchema = z.object({
   id: z.string(),
   title: z.string(),
