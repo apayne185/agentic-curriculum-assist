@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { LlmProvider, StructuredToolCall } from "../types";
-import { LlmResponseTruncatedError } from "../types";
+import { LlmNotConfiguredError, LlmProviderError, LlmResponseTruncatedError } from "../types";
 
 const MODEL = "claude-sonnet-5";
 
@@ -19,9 +19,7 @@ export class AnthropicProvider implements LlmProvider {
     if (!this.client) {
       const apiKey = process.env.ANTHROPIC_API_KEY;
       if (!apiKey) {
-        throw new Error(
-          "ANTHROPIC_API_KEY is not set. Add it to .env.local before using the tailoring features.",
-        );
+        throw new LlmNotConfiguredError("ANTHROPIC_API_KEY is not set.");
       }
       this.client = new Anthropic({ apiKey });
     }
@@ -30,20 +28,27 @@ export class AnthropicProvider implements LlmProvider {
 
   async runStructuredTool<T>(call: StructuredToolCall<T>): Promise<T> {
     const anthropic = this.getClient();
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 16000,
-      system: call.system,
-      messages: [{ role: "user", content: call.userContent }],
-      tools: [
-        {
-          name: call.toolName,
-          description: call.toolDescription,
-          input_schema: jsonSchemaFor(call.schema),
-        },
-      ],
-      tool_choice: { type: "tool", name: call.toolName },
-    });
+
+    let response: Anthropic.Message;
+    try {
+      response = await anthropic.messages.create({
+        model: MODEL,
+        max_tokens: 16000,
+        system: call.system,
+        messages: [{ role: "user", content: call.userContent }],
+        tools: [
+          {
+            name: call.toolName,
+            description: call.toolDescription,
+            input_schema: jsonSchemaFor(call.schema),
+          },
+        ],
+        tool_choice: { type: "tool", name: call.toolName },
+      });
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new LlmProviderError(`Anthropic API request failed: ${detail}`, { cause: err });
+    }
 
     if (response.stop_reason === "max_tokens") {
       throw new LlmResponseTruncatedError();
@@ -51,7 +56,7 @@ export class AnthropicProvider implements LlmProvider {
 
     const toolUse = response.content.find((block) => block.type === "tool_use");
     if (!toolUse || toolUse.type !== "tool_use") {
-      throw new Error("Claude did not return a tool call as expected.");
+      throw new LlmProviderError("Claude did not return a tool call as expected.");
     }
     return call.schema.parse(toolUse.input);
   }

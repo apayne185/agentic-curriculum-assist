@@ -5,7 +5,7 @@ import {
   cvContentSchema,
   tailorResultSchema,
 } from "../cv-schema";
-import type { LlmProvider } from "./types";
+import { LlmNotConfiguredError, type LlmProvider } from "./types";
 import { AnthropicProvider } from "./providers/anthropic";
 import { GeminiProvider } from "./providers/gemini";
 
@@ -20,7 +20,7 @@ function getProvider(): LlmProvider {
     const name = (process.env.LLM_PROVIDER || "anthropic").toLowerCase();
     const factory = PROVIDERS[name];
     if (!factory) {
-      throw new Error(
+      throw new LlmNotConfiguredError(
         `Unknown LLM_PROVIDER "${name}". Supported: ${Object.keys(PROVIDERS).join(", ")}.`,
       );
     }
