@@ -8,6 +8,13 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: "development"
+    ignore:
+      # typescript-eslint (a dependency of eslint-config-next) hard-errors
+      # on TypeScript 7.x ("typescript-eslint does not support TS 7.0"), so
+      # a major-version bump here breaks lint until that catches up. Minor/
+      # patch updates within the 6.x line are still fine.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
