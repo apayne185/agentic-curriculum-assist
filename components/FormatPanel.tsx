@@ -74,8 +74,11 @@ export default function FormatPanel({ style, onChange, onAutofit, autofitting, o
       )}
 
       <div>
-        <h3 className="font-medium text-sm mb-2">Font</h3>
+        <h3 id="font-heading" className="font-medium text-sm mb-2">
+          Font
+        </h3>
         <select
+          aria-labelledby="font-heading"
           value={style.fontFamily}
           onChange={(e) => set({ fontFamily: e.target.value as CvStyle["fontFamily"] })}
           className="w-full border border-zinc-300 rounded px-2 py-1.5 text-sm mb-2"
@@ -125,8 +128,11 @@ export default function FormatPanel({ style, onChange, onAutofit, autofitting, o
       </div>
 
       <div>
-        <h3 className="font-medium text-sm mb-2">Paper size</h3>
+        <h3 id="paper-size-heading" className="font-medium text-sm mb-2">
+          Paper size
+        </h3>
         <select
+          aria-labelledby="paper-size-heading"
           value={style.paperSize}
           onChange={(e) => set({ paperSize: e.target.value as CvStyle["paperSize"] })}
           className="w-full border border-zinc-300 rounded px-2 py-1.5 text-sm"

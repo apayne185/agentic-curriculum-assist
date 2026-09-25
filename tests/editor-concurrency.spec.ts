@@ -67,7 +67,7 @@ test("a re-tailor that resolves while autofit is still running doesn't clobber a
   await page.getByRole("button", { name: "Fit to one page" }).click();
   await page.waitForTimeout(100);
 
-  await page.getByRole("button", { name: "Notes" }).click();
+  await page.getByRole("tab", { name: "Notes" }).click();
   await page.locator("textarea").fill("emphasize leadership");
   await page.getByRole("button", { name: "Apply & re-tailor" }).click();
 

@@ -155,12 +155,15 @@ export default function IntakePage() {
   if (stage === "need-country") {
     return (
       <main className="mx-auto max-w-md px-6 py-16">
-        <h1 className="text-xl font-semibold mb-2">Which country is this job in?</h1>
+        <h1 id="country-question" className="text-xl font-semibold mb-2">
+          Which country is this job in?
+        </h1>
         <p className="text-sm text-zinc-600 mb-6">
           We couldn&apos;t confidently tell from the job posting, and this affects the CV&apos;s
           paper size and formatting conventions.
         </p>
         <select
+          aria-labelledby="country-question"
           className="w-full border border-zinc-300 rounded px-3 py-2 mb-4"
           value={pendingCountry}
           onChange={(e) => setPendingCountry(e.target.value)}
@@ -173,13 +176,18 @@ export default function IntakePage() {
           ))}
         </select>
         <button
+          type="button"
           className="w-full bg-black text-white rounded px-4 py-2 disabled:opacity-40"
           disabled={!pendingCountry || busy}
           onClick={handleConfirmCountry}
         >
           {busy ? "Tailoring…" : "Continue"}
         </button>
-        {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-red-600 mt-3">
+            {error}
+          </p>
+        )}
       </main>
     );
   }
@@ -194,8 +202,11 @@ export default function IntakePage() {
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div>
-          <label className="block font-medium mb-2">Your CV (PDF)</label>
+          <label htmlFor="cv-file" className="block font-medium mb-2">
+            Your CV (PDF)
+          </label>
           <input
+            id="cv-file"
             ref={fileInputRef}
             type="file"
             accept="application/pdf"
@@ -206,8 +217,11 @@ export default function IntakePage() {
         </div>
 
         <div>
-          <label className="block font-medium mb-2">Job posting URL</label>
+          <label htmlFor="job-url" className="block font-medium mb-2">
+            Job posting URL
+          </label>
           <input
+            id="job-url"
             type="url"
             placeholder="https://company.com/careers/role"
             value={jobUrl}
@@ -216,6 +230,8 @@ export default function IntakePage() {
           />
           <button
             type="button"
+            aria-expanded={showPasteBox}
+            aria-controls="job-text"
             onClick={() => setShowPasteBox((v) => !v)}
             className="text-sm text-zinc-600 underline mt-2"
           >
@@ -223,6 +239,8 @@ export default function IntakePage() {
           </button>
           {showPasteBox && (
             <textarea
+              id="job-text"
+              aria-label="Job description"
               placeholder="Paste the job description here…"
               value={jobText}
               onChange={(e) => setJobText(e.target.value)}
@@ -233,8 +251,11 @@ export default function IntakePage() {
         </div>
 
         <div>
-          <label className="block font-medium mb-2">Additional notes (optional)</label>
+          <label htmlFor="notes" className="block font-medium mb-2">
+            Additional notes (optional)
+          </label>
           <textarea
+            id="notes"
             placeholder="e.g. I'm applying as a career switcher, emphasize leadership, keep it to bullet points only…"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -243,7 +264,11 @@ export default function IntakePage() {
           />
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-red-600">
+            {error}
+          </p>
+        )}
 
         <button
           type="submit"

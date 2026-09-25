@@ -10,8 +10,11 @@ export default function NotesBox({ onRetailor, busy }: NotesBoxProps) {
 
   return (
     <div className="space-y-2">
-      <h3 className="font-medium text-sm">Additional notes</h3>
+      <h3 id="notes-heading" className="font-medium text-sm">
+        Additional notes
+      </h3>
       <textarea
+        aria-labelledby="notes-heading"
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
         rows={4}
