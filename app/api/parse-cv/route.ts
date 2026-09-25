@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
 import { extractCvFromText } from "@/lib/llm";
+import { userFacingErrorMessage } from "@/lib/llm/user-facing-error";
 import { DEFAULT_CV_STYLE, toCvDocument } from "@/lib/cv-schema";
 
 export const runtime = "nodejs";
@@ -64,7 +65,10 @@ export async function POST(request: Request) {
     const cv = toCvDocument(content, DEFAULT_CV_STYLE);
     return NextResponse.json({ cv });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to parse CV.";
+    const message = userFacingErrorMessage(
+      err,
+      "Something went wrong while reading your CV. Please try again in a moment.",
+    );
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

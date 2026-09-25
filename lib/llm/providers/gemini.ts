@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { LlmProvider, StructuredToolCall } from "../types";
-import { LlmResponseTruncatedError } from "../types";
+import { LlmNotConfiguredError, LlmProviderError, LlmResponseTruncatedError } from "../types";
 import { toGeminiSchema } from "./json-schema-to-gemini";
 
 // Gemini 2.5 Flash has a free tier (rate-limited, no billing required) via
@@ -22,9 +22,7 @@ export class GeminiProvider implements LlmProvider {
   private getApiKey(): string {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error(
-        "GEMINI_API_KEY is not set. Add it to .env.local before using the tailoring features (LLM_PROVIDER=gemini).",
-      );
+      throw new LlmNotConfiguredError("GEMINI_API_KEY is not set.");
     }
     return apiKey;
   }
@@ -34,26 +32,32 @@ export class GeminiProvider implements LlmProvider {
     const jsonSchema = z.toJSONSchema(call.schema, { target: "draft-7" }) as Record<string, unknown>;
     delete jsonSchema.$schema;
 
-    const response = await fetch(
-      `${API_BASE}/models/${MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: call.system }] },
-          contents: [{ role: "user", parts: [{ text: call.userContent }] }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: toGeminiSchema(jsonSchema),
-            maxOutputTokens: 16000,
-          },
-        }),
-      },
-    );
+    let response: Response;
+    try {
+      response = await fetch(
+        `${API_BASE}/models/${MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: call.system }] },
+            contents: [{ role: "user", parts: [{ text: call.userContent }] }],
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: toGeminiSchema(jsonSchema),
+              maxOutputTokens: 16000,
+            },
+          }),
+        },
+      );
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new LlmProviderError(`Gemini API request failed: ${detail}`, { cause: err });
+    }
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
-      throw new Error(`Gemini API error (${response.status}): ${body.slice(0, 500)}`);
+      throw new LlmProviderError(`Gemini API error (${response.status}): ${body.slice(0, 500)}`);
     }
 
     const data: GeminiResponse = await response.json();
@@ -65,14 +69,14 @@ export class GeminiProvider implements LlmProvider {
 
     const text = candidate?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
     if (!text) {
-      throw new Error("Gemini did not return a response as expected.");
+      throw new LlmProviderError("Gemini did not return a response as expected.");
     }
 
     let parsed: unknown;
     try {
       parsed = JSON.parse(text);
     } catch {
-      throw new Error("Gemini returned invalid JSON.");
+      throw new LlmProviderError("Gemini returned invalid JSON.");
     }
     return call.schema.parse(parsed);
   }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { tailorCv } from "@/lib/llm";
+import { userFacingErrorMessage } from "@/lib/llm/user-facing-error";
 import { cvDocumentSchema, toCvDocument } from "@/lib/cv-schema";
 
 export const runtime = "nodejs";
@@ -52,7 +53,10 @@ export async function POST(request: Request) {
     const cv = toCvDocument(tailoredContent, style);
     return NextResponse.json({ cv, countryDetection });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to tailor CV.";
+    const message = userFacingErrorMessage(
+      err,
+      "Something went wrong while tailoring your CV. Please try again in a moment.",
+    );
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

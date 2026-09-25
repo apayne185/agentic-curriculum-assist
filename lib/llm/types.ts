@@ -32,3 +32,37 @@ export class LlmResponseTruncatedError extends Error {
     this.name = "LlmResponseTruncatedError";
   }
 }
+
+/**
+ * Thrown when the selected provider has no API key configured. Carries a
+ * plain-language `userMessage` (safe to show as-is, no setup jargon) plus
+ * the technical detail in `message` (for server logs only) — callers at
+ * the API route boundary should always prefer `userMessage` when reporting
+ * this to whoever is using the app, most of whom have never heard of an
+ * environment variable.
+ */
+export class LlmNotConfiguredError extends Error {
+  readonly userMessage =
+    "This app isn't fully set up yet — it's missing the API key it needs to tailor CVs. Please let whoever set this up know.";
+
+  constructor(technicalDetail: string) {
+    super(technicalDetail);
+    this.name = "LlmNotConfiguredError";
+  }
+}
+
+/**
+ * Wraps any error from the underlying provider's API call (auth failure,
+ * rate limit, network error, malformed response) behind a stable,
+ * plain-language message — the technical detail is preserved in `cause`
+ * for server logs, never shown to the person using the app.
+ */
+export class LlmProviderError extends Error {
+  readonly userMessage =
+    "We couldn't reach the AI service that tailors your CV right now. Please try again in a moment.";
+
+  constructor(technicalDetail: string, options?: { cause?: unknown }) {
+    super(technicalDetail, options);
+    this.name = "LlmProviderError";
+  }
+}
