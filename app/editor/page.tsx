@@ -9,13 +9,13 @@ import NotesBox from "@/components/NotesBox";
 import { useCvSession } from "@/lib/cv-store";
 import { autofitToOnePage, pageHeightIn } from "@/lib/autofit";
 import { measureCvHeightIn } from "@/lib/measure-cv-height";
-import type { CvDocument, CvStyle } from "@/lib/cv-schema";
+import { clampCvStyle, type CvDocument, type CvStyle } from "@/lib/cv-schema";
 
 type Tab = "format" | "edit" | "notes";
 
 export default function EditorPage() {
   const router = useRouter();
-  const { session, setSession, hydrated } = useCvSession();
+  const { session, setSession, updateSession, hydrated } = useCvSession();
   const [tab, setTab] = useState<Tab>("format");
   const [overflowing, setOverflowing] = useState<boolean | null>(null);
   const [autofitting, setAutofitting] = useState(false);
@@ -59,10 +59,16 @@ export default function EditorPage() {
   async function handleAutofit() {
     setAutofitting(true);
     try {
+      // Captures the style to fit at the moment autofit starts. The
+      // measurement loop below runs several async passes, during which
+      // other edits (a re-tailor, a manual edit) may land — the final
+      // write uses the functional updateSession so it merges onto
+      // whatever is live *then*, rather than overwriting it with a value
+      // computed from this now-stale snapshot.
       const { style, fits } = await autofitToOnePage(cvSession.current.style, (candidateStyle) =>
         measureCvHeightIn(cvSession.current, candidateStyle),
       );
-      updateStyle(style);
+      updateSession((prev) => ({ ...prev, current: { ...prev.current, style } }));
       setOverflowing(!fits);
       if (!fits) {
         setError(
@@ -76,7 +82,9 @@ export default function EditorPage() {
     }
   }
 
-  async function handleRetailor(notes: string) {
+  /** Returns whether the re-tailor succeeded, so callers (NotesBox) know
+   * whether it's safe to clear what the user typed. */
+  async function handleRetailor(notes: string): Promise<boolean> {
     setRetailoring(true);
     setError(null);
     try {
@@ -92,14 +100,22 @@ export default function EditorPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to re-tailor.");
-      setSession({
-        ...cvSession,
-        current: data.cv,
-        countryDetection: data.countryDetection,
-        notes,
+      // Merges onto whatever session is live when this resolves (see the
+      // comment in handleAutofit) rather than the snapshot captured when
+      // the request started, so a concurrent autofit/manual style edit
+      // isn't lost.
+      updateSession((prev) => {
+        // Re-tailoring only ever changes *content*, never formatting — the
+        // response's style reflects whatever was live when the request was
+        // sent, which may now be stale (e.g. autofit ran while this was in
+        // flight). Always keep the live style in full, not just paperSize.
+        const tailoredCv: CvDocument = { ...data.cv, style: prev.current.style };
+        return { ...prev, current: tailoredCv, countryDetection: data.countryDetection, notes };
       });
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
+      return false;
     } finally {
       setRetailoring(false);
     }
@@ -109,10 +125,18 @@ export default function EditorPage() {
     setExporting(true);
     setError(null);
     try {
+      // Defensive clamp in case a format field holds a transiently
+      // out-of-range value (e.g. mid-typing, not yet blurred) — the export
+      // schema enforces the same bounds and would otherwise fail with an
+      // opaque "Invalid cv" error instead of just using a valid value.
+      const cvToExport: CvDocument = {
+        ...cvSession.current,
+        style: clampCvStyle(cvSession.current.style),
+      };
       const res = await fetch("/api/export-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cv: cvSession.current }),
+        body: JSON.stringify({ cv: cvToExport }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

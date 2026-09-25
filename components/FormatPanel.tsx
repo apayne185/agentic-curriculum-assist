@@ -8,6 +8,11 @@ type FormatPanelProps = {
   overflowing: boolean | null;
 };
 
+function clamp(value: number, min: number, max: number): number {
+  if (Number.isNaN(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
 function NumberField({
   label,
   value,
@@ -32,7 +37,15 @@ function NumberField({
         min={min}
         max={max}
         step={step}
+        // While typing, let the field hold whatever value the user is
+        // mid-way through entering (e.g. "1" on the way to "12") — the
+        // browser's min/max only affect the spinner arrows, not typing, so
+        // clamp on blur instead of every keystroke. Otherwise an
+        // out-of-range style would pass the live preview fine but fail PDF
+        // export server-side with an opaque "Invalid cv" error, since the
+        // schema enforces these same bounds.
         onChange={(e) => onChange(Number(e.target.value))}
+        onBlur={(e) => onChange(clamp(Number(e.target.value), min, max))}
         className="w-20 border border-zinc-300 rounded px-2 py-1 text-right"
       />
     </label>

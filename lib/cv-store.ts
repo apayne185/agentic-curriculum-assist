@@ -68,5 +68,22 @@ export function useCvSession() {
     else clearSession();
   }, []);
 
-  return { session, setSession: update, hydrated };
+  /**
+   * Functional update: `updater` receives the *latest* session (not a
+   * value captured in a stale closure) and returns the next one. Use this
+   * from any async operation (autofit, re-tailor) that reads-then-writes
+   * the session, so two such operations resolving out of order can't
+   * silently clobber each other's changes — each always merges onto
+   * whatever the other most recently committed.
+   */
+  const updateFn = useCallback((updater: (prev: CvSession) => CvSession) => {
+    setSession((prev) => {
+      if (!prev) return prev;
+      const next = updater(prev);
+      saveSession(next);
+      return next;
+    });
+  }, []);
+
+  return { session, setSession: update, updateSession: updateFn, hydrated };
 }

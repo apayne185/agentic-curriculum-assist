@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { saveSession } from "@/lib/cv-store";
-import type { CvDocument, CountryDetection } from "@/lib/cv-schema";
+import { paperSizeForCountry, type CvDocument, type CountryDetection } from "@/lib/cv-schema";
 
 type Stage =
   | "idle"
@@ -84,14 +84,24 @@ export default function IntakePage() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "Failed to tailor CV.");
 
-    const tailoredCv = data.cv as CvDocument;
-    const countryDetection = data.countryDetection as CountryDetection;
+    let tailoredCv = data.cv as CvDocument;
+    let countryDetection = data.countryDetection as CountryDetection;
 
     if (!countryDetection.confident && !countryOverride) {
       setPendingParsedCv(cv);
       setPendingJobText(jobDescriptionText);
       setStage("need-country");
       return;
+    }
+
+    // An explicit user-confirmed country is authoritative — never let the
+    // model's own inference on this call (which could reasonably disagree,
+    // e.g. still detecting the job posting's original location) override
+    // what the user just picked.
+    if (countryOverride) {
+      const paperSize = paperSizeForCountry(countryOverride);
+      tailoredCv = { ...tailoredCv, style: { ...tailoredCv.style, paperSize } };
+      countryDetection = { countryGuess: countryOverride, paperSize, confident: true };
     }
 
     saveSession({
