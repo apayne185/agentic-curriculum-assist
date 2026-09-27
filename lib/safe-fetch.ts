@@ -1,4 +1,5 @@
 import { lookup } from "node:dns/promises";
+import type { LookupAddress } from "node:dns";
 import { isIP } from "node:net";
 
 const PRIVATE_IPV4_RANGES: Array<[number, number]> = [
@@ -66,7 +67,14 @@ export async function safeFetch(rawUrl: string, init?: RequestInit): Promise<Res
     if (hostname === "localhost" || hostname.endsWith(".localhost")) {
       throw new Error("That URL points to a private network address and can't be fetched.");
     }
-    const records = await lookup(hostname, { all: true });
+    let records: LookupAddress[];
+    try {
+      records = await lookup(hostname, { all: true });
+    } catch {
+      // Most commonly a typo'd or nonexistent domain (DNS ENOTFOUND) —
+      // Node's raw error code means nothing to whoever typed the URL.
+      throw new Error(`Couldn't find "${hostname}". Please check the URL and try again.`);
+    }
     for (const record of records) {
       if (record.family === 4 && isPrivateIpv4(record.address)) {
         throw new Error("That URL resolves to a private network address and can't be fetched.");
@@ -77,5 +85,9 @@ export async function safeFetch(rawUrl: string, init?: RequestInit): Promise<Res
     }
   }
 
-  return fetch(parsed, { ...init, redirect: "follow" });
+  try {
+    return await fetch(parsed, { ...init, redirect: "follow" });
+  } catch {
+    throw new Error("Couldn't reach that website. Please check the URL and try again.");
+  }
 }

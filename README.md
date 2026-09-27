@@ -35,6 +35,29 @@ manually edit sections, and export a matching PDF.
 
    Open [http://localhost:3000](http://localhost:3000).
 
+## Deploying to Vercel
+
+The app runs on Vercel with no code changes needed beyond what's already in this repo, but a
+few things can only be set from Vercel's dashboard (not from code or `vercel.json`):
+
+1. Connect the repo in the Vercel dashboard and deploy as a standard Next.js project — no
+   special build command needed.
+2. Set environment variables in the project's **Settings → Environment Variables**: whichever of
+   `ANTHROPIC_API_KEY` / (`LLM_PROVIDER=gemini` + `GEMINI_API_KEY`) you're using. These are the
+   same variables as `.env.local` locally, just set in Vercel's UI instead of a file.
+3. Check the PDF export route's memory allocation in **Settings → Functions**. Vercel's default
+   (currently 1024MB under Fluid Compute) is a reasonable starting point for launching a
+   headless Chromium and rendering one page — if exports fail or time out in practice, this is
+   the first thing to raise.
+4. Give the deploy a real end-to-end try once it's live: upload a CV, tailor it, and download
+   the PDF. The Vercel-specific browser launch path (`lib/pdf-render.ts`, using
+   `@sparticuz/chromium` instead of full Playwright) is exercised only in this environment — it
+   can't be fully verified without an actual deployment, so this is the one thing worth checking
+   closely the first time.
+
+Locally, dev, and on a traditional server (VPS, Docker, etc.) the app keeps using full
+Playwright exactly as before — none of the above applies outside Vercel.
+
 ## How it works
 
 - **Intake** (`/`): upload your CV PDF, provide a job URL or pasted description, and optional
@@ -56,7 +79,10 @@ manually edit sections, and export a matching PDF.
   the schema, or the API routes that call them.
 - `lib/pdf-extract.ts` — PDF → raw text.
 - `lib/pdf-render.ts` — renders the CV template to PDF via Playwright, matching the browser
-  preview exactly.
+  preview exactly. Launches full Playwright's Chromium locally/on a traditional server, or
+  `playwright-core` + `@sparticuz/chromium` on Vercel (detected via `process.env.VERCEL`), since
+  Vercel's serverless functions need a Chromium build packaged for that environment instead of
+  a pre-installed browser.
 - `lib/autofit.ts` — logic for shrinking font/margins/spacing to fit the CV on one page.
 - `components/CvDocument.tsx` — the CV template itself, used for both the live preview and the
   PDF export.

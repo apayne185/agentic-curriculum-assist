@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
 import { extractCvFromText } from "@/lib/llm";
-import { userFacingErrorMessage } from "@/lib/llm/user-facing-error";
+import { userFacingErrorMessage } from "@/lib/user-facing-error";
 import { DEFAULT_CV_STYLE, toCvDocument } from "@/lib/cv-schema";
 
 export const runtime = "nodejs";
